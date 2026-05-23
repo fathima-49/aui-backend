@@ -2,7 +2,6 @@ const express = require('express');
 const router  = express.Router();
 const User    = require('../models-db/User');
 
-// Save or update profile
 router.post('/profile', async (req, res) => {
   try {
     const { userId, neurotype, preferences } = req.body;
@@ -17,7 +16,6 @@ router.post('/profile', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Get profile
 router.get('/profile/:userId', async (req, res) => {
   try {
     const user = await User.findOne({ userId: req.params.userId });

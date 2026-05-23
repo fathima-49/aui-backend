@@ -2,7 +2,6 @@ const express = require('express');
 const router  = express.Router();
 const Session = require('../models-db/Session');
 
-// Log a session
 router.post('/log', async (req, res) => {
   try {
     const session = await new Session(req.body).save();
@@ -10,7 +9,6 @@ router.post('/log', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Get sessions for a user
 router.get('/:userId', async (req, res) => {
   try {
     const sessions = await Session
