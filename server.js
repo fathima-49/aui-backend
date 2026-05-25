@@ -3,7 +3,13 @@ const mongoose = require('mongoose');
 const cors     = require('cors');
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: [
+    'http://localhost:3000',
+    'https://aui-frontend-ecvsqjd1t-fathima-binthe-s-projects.vercel.app',
+    /\.vercel\.app$/
+  ]
+}));
 app.use(express.json());
 
 // Uses Atlas URI if available, falls back to local MongoDB
