@@ -3,16 +3,13 @@ const mongoose = require('mongoose');
 const cors     = require('cors');
 
 const app = express();
+
 app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'https://aui-frontend-ecvsqjd1t-fathima-binthe-s-projects.vercel.app',
-    /\.vercel\.app$/
-  ]
+  origin: '*'
 }));
+
 app.use(express.json());
 
-// Uses Atlas URI if available, falls back to local MongoDB
 const MONGO_URI = process.env.MONGO_URI
   || 'mongodb://localhost:27017/aui_db';
 
