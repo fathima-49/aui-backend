@@ -1,40 +1,94 @@
-const express = require('express');
-const cors    = require('cors');
+const express  = require('express');
+const cors     = require('cors');
+const mongoose = require('mongoose');
 
 const app = express();
 app.use(cors({ origin: '*' }));
 app.use(express.json());
 
-const users    = {};
-const sessions = [];
+// ── MongoDB connection ──────────────────────────────────────────
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => console.log('MongoDB connected'))
+  .catch(err => console.error('MongoDB error:', err.message));
 
-app.post('/api/users/profile', (req, res) => {
-  const { userId, neurotype, preferences } = req.body;
-  users[userId] = { userId, neurotype, preferences, createdAt: new Date() };
-  res.json({ success: true, user: users[userId] });
+// ── Schemas ─────────────────────────────────────────────────────
+const userSchema = new mongoose.Schema({
+  userId:      { type: String, required: true, unique: true },
+  neurotype:   String,
+  preferences: {
+    colorTheme:     { type: String, default: 'default' },
+    fontStyle:      { type: String, default: 'sans' },
+    fontSize:       { type: String, default: 'medium' },
+    animationSpeed: { type: String, default: 'normal' },
+    focusMode:      { type: Boolean, default: false },
+  },
+  createdAt: { type: Date, default: Date.now },
 });
 
-app.get('/api/users/profile/:userId', (req, res) => {
-  const user = users[req.params.userId];
-  if (!user) return res.status(404).json({ error: 'Not found' });
-  res.json(user);
+const sessionSchema = new mongoose.Schema({
+  userId:             String,
+  sessionId:          String,
+  neurotype:          String,
+  behavioralData:     Object,
+  predictedState:     String,
+  adaptationsApplied: [String],
+  timestamp:          { type: Date, default: Date.now },
 });
 
-app.post('/api/sessions/log', (req, res) => {
-  const session = { ...req.body, timestamp: new Date() };
-  sessions.push(session);
-  if (sessions.length > 100) sessions.shift();
-  res.json({ success: true, sessionId: req.body.sessionId });
+const User    = mongoose.model('User',    userSchema);
+const Session = mongoose.model('Session', sessionSchema);
+
+// ── User routes ─────────────────────────────────────────────────
+app.post('/api/users/profile', async (req, res) => {
+  try {
+    const { userId, neurotype, preferences } = req.body;
+    const user = await User.findOneAndUpdate(
+      { userId },
+      { userId, neurotype, preferences },
+      { upsert: true, new: true }
+    );
+    res.json({ success: true, user });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
-app.get('/api/sessions/:userId', (req, res) => {
-  const userSessions = sessions
-    .filter(s => s.userId === req.params.userId)
-    .slice(-20)
-    .reverse();
-  res.json(userSessions);
+app.get('/api/users/profile/:userId', async (req, res) => {
+  try {
+    const user = await User.findOne({ userId: req.params.userId });
+    if (!user) return res.status(404).json({ error: 'Not found' });
+    res.json(user);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
+// ── Session routes ───────────────────────────────────────────────
+app.post('/api/sessions/log', async (req, res) => {
+  try {
+    const session = await Session.create({
+      ...req.body,
+      timestamp: new Date(),
+    });
+    res.json({ success: true, sessionId: session.sessionId });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/sessions/:userId', async (req, res) => {
+  try {
+    const sessions = await Session
+      .find({ userId: req.params.userId })
+      .sort({ timestamp: -1 })
+      .limit(20);
+    res.json(sessions);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Predict route ────────────────────────────────────────────────
 function getAdaptations(state, neurotype) {
   const a = [];
   if (state === 'Distracted')     a.push('enable_focus_mode','reduce_animations','simplify_layout');
@@ -62,13 +116,21 @@ app.post('/api/predict/focus-state', (req, res) => {
   });
 });
 
-app.get('/health', (req, res) => {
-  res.json({
-    status:   'ok',
-    storage:  'in-memory',
-    users:    Object.keys(users).length,
-    sessions: sessions.length,
-  });
+// ── Health check ─────────────────────────────────────────────────
+app.get('/health', async (req, res) => {
+  try {
+    const users    = await User.countDocuments();
+    const sessions = await Session.countDocuments();
+    res.json({
+      status:   'ok',
+      storage:  'mongodb',
+      db:       mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+      users,
+      sessions,
+    });
+  } catch (e) {
+    res.json({ status: 'ok', storage: 'mongodb', db: 'error' });
+  }
 });
 
 const PORT = process.env.PORT || 5000;
