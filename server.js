@@ -115,55 +115,40 @@ function ruleBased(data) {
   return { state: 'Focused', confidence: 0.80 };
 }
 
-// ── Predict route — calls ML Flask API ──────────────────────────
-app.post('/api/predict/focus-state', async (req, res) => {
+// ── Predict route — rule-based behavioral classifier ────────────
+app.post('/api/predict/focus-state', (req, res) => {
   const body = req.body;
-  let state, confidence, modelUsed;
 
-  try {
-    // Call the ML Flask API
-    // Map frontend behavioral signals to model feature names
-    const mlPayload = {
-      gsr_mean:  body.avg_gsr     || 1.0,
-      gsr_std:   body.std_gsr     || 0.3,
-      gsr_max:   body.max_gsr     || body.avg_gsr * 1.5 || 2.0,
-      gsr_min:   body.min_gsr     || 0.1,
-      gsr_range: (body.max_gsr - body.min_gsr) || body.avg_gsr || 1.0,
-      gsr_slope: body.gsr_slope   || 0.0,
-      acc_mean:  body.acc_mean    || 65.0,
-      acc_std:   body.acc_std     || 12.0,
-      acc_max:   body.acc_max     || 80.0,
-      acc_p75:   body.acc_p75     || 70.0,
-      tmp_mean:  body.tmp_mean    || 32.0,
-      tmp_std:   body.tmp_std     || 0.5,
-      tmp_slope: body.tmp_slope   || 0.0,
-    };
+  const acc_std        = body.acc_std        || 0;
+  const avg_engagement = body.avg_engagement || 2.0;
+  const gaze_ratio     = body.gaze_ratio     || 0.5;
 
-    const mlResponse = await axios.post(`${ML_API}/ml/predict`, mlPayload, {
-      timeout: 3000
-    });
+  let state, confidence;
 
-    state      = mlResponse.data.state;
-    confidence = mlResponse.data.confidence;
-    modelUsed  = mlResponse.data.model;
-
-  } catch (mlError) {
-    // ML API not reachable — use rule-based fallback
-    console.log('ML API unavailable, using rule-based fallback:', mlError.message);
-    const fallback = ruleBased(body);
-    state      = fallback.state;
-    confidence = fallback.confidence;
-    modelUsed  = 'rule-based-fallback';
+  if (acc_std > 80) {
+    state      = 'Overstimulated';
+    confidence = 0.82;
+  }
+  else if (avg_engagement < 0.5 && gaze_ratio < 0.2) {
+    state      = 'Distracted';
+    confidence = 0.78;
+  }
+  else if (acc_std < 2 && gaze_ratio < 0.15) {
+    state      = 'Distracted';
+    confidence = 0.72;
+  }
+  else {
+    state      = 'Focused';
+    confidence = 0.85;
   }
 
   res.json({
-    focusState:   state,
-    confidence:   confidence,
-    adaptations:  getAdaptations(state, body.neurotype),
-    modelUsed:    modelUsed,
+    focusState:  state,
+    confidence:  confidence,
+    adaptations: getAdaptations(state, body.neurotype),
+    modelUsed:   'behavioral-rule-classifier',
   });
 });
-
 // ── Health check ─────────────────────────────────────────────────
 app.get('/health', async (req, res) => {
   try {
