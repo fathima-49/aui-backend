@@ -1,0 +1,15 @@
+AUI Project — ML Model Evaluation Results
+==================================================
+Dataset: Engagnition (ASD Children Engagement Dataset)
+Classes: Focused (HPE), Distracted (LPE), Overstimulated (Baseline)
+Evaluation: 5-Fold Stratified Cross-Validation
+
+Model Accuracies:
+------------------------------
+Random Forest       : 65.00% (+/- 9.39%)
+SVM                 : 68.33% (+/- 7.43%)
+MLP                 : 71.97% (+/- 6.39%)
+XGBoost             : 61.36% (+/- 4.34%)
+
+Selected Model: MLP
+Final Accuracy: 71.97%
