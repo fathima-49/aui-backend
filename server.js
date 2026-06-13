@@ -86,9 +86,9 @@ app.post('/api/sessions/log', async (req, res) => {
 app.get('/api/sessions/:userId', async (req, res) => {
   try {
     const sessions = await Session
-      .find({ userId: req.params.userId })
-      .sort({ timestamp: -1 })
-      .limit(20);
+  .find({ userId: req.params.userId })
+  .sort({ timestamp: -1 })
+  .limit(100);
     res.json(sessions);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -122,21 +122,27 @@ app.post('/api/predict/focus-state', (req, res) => {
   const acc_std        = body.acc_std        || 0;
   const avg_engagement = body.avg_engagement || 2.0;
   const gaze_ratio     = body.gaze_ratio     || 0.5;
+  const scroll_count   = body.scroll_count   || 0;
 
   let state, confidence;
 
-  if (acc_std > 80) {
+  // Overstimulated — very high mouse movement variance (frantic movement)
+  // Real mouse pixel/second std is typically 300-3000
+  if (acc_std > 600) {
     state      = 'Overstimulated';
     confidence = 0.82;
   }
-  else if (avg_engagement < 0.5 && gaze_ratio < 0.2) {
+  // Distracted — no clicks, no scrolling, very low engagement
+  else if (avg_engagement < 0.5 && scroll_count === 0 && gaze_ratio < 0.1) {
     state      = 'Distracted';
     confidence = 0.78;
   }
-  else if (acc_std < 2 && gaze_ratio < 0.15) {
+  // Distracted — minimal mouse movement AND no interaction
+  else if (acc_std < 10 && avg_engagement < 0.5 && scroll_count < 2) {
     state      = 'Distracted';
     confidence = 0.72;
   }
+  // Focused — everything in between
   else {
     state      = 'Focused';
     confidence = 0.85;
