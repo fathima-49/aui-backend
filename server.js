@@ -121,28 +121,22 @@ app.post('/api/predict/focus-state', (req, res) => {
 
   const acc_std        = body.acc_std        || 0;
   const avg_engagement = body.avg_engagement || 2.0;
-  const gaze_ratio     = body.gaze_ratio     || 0.5;
   const scroll_count   = body.scroll_count   || 0;
 
   let state, confidence;
 
-  // Overstimulated — very high mouse movement variance (frantic movement)
-  // Real mouse pixel/second std is typically 300-3000
-  if (acc_std > 600) {
+  // Overstimulated — extremely frantic mouse movement
+  // Normal browsing produces ~300-600, frantic is 2000+
+  if (acc_std > 2000) {
     state      = 'Overstimulated';
     confidence = 0.82;
   }
-  // Distracted — no clicks, no scrolling, very low engagement
-  else if (avg_engagement < 0.5 && scroll_count === 0 && gaze_ratio < 0.1) {
+  // Distracted — no clicks, no scrolling, very low movement
+  else if (acc_std < 50 && avg_engagement < 0.5 && scroll_count < 2) {
     state      = 'Distracted';
     confidence = 0.78;
   }
-  // Distracted — minimal mouse movement AND no interaction
-  else if (acc_std < 10 && avg_engagement < 0.5 && scroll_count < 2) {
-    state      = 'Distracted';
-    confidence = 0.72;
-  }
-  // Focused — everything in between
+  // Focused — normal browsing (everything in between)
   else {
     state      = 'Focused';
     confidence = 0.85;
