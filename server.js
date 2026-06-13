@@ -127,7 +127,7 @@ app.post('/api/predict/focus-state', (req, res) => {
 
   // Overstimulated — extremely frantic mouse movement
   // Normal browsing produces ~300-600, frantic is 2000+
-  if (acc_std > 2000) {
+  if (acc_std > 1500) {
     state      = 'Overstimulated';
     confidence = 0.82;
   }
